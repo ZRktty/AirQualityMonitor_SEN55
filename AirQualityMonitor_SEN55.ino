@@ -36,6 +36,7 @@ const unsigned long SEND_INTERVAL = 20000; // 20 seconds to be safe
 const unsigned long SENSOR_READ_INTERVAL = 1000; // Read sensor every second
 
 unsigned long lastSendTime = 0;
+unsigned long lastSensorReadTime = 0;
 
 // OTA update flag
 bool otaInProgress = false;
@@ -285,11 +286,19 @@ void loop() {
     
     // Skip sensor operations during OTA update
     if (otaInProgress) {
-        delay(100); // Short delay to keep OTA responsive
+        delay(10); // Very short delay, allows OTA.handle() to be called ~100x per second
         return;
     }
     
-    delay(SENSOR_READ_INTERVAL);
+    unsigned long currentTime = millis();
+    
+    // Non-blocking sensor reading - only read every SENSOR_READ_INTERVAL
+    if (currentTime - lastSensorReadTime < SENSOR_READ_INTERVAL) {
+        delay(10); // Short delay to prevent tight loop, but still responsive to OTA
+        return;
+    }
+    
+    lastSensorReadTime = currentTime;
 
     // Read sensor values
     float pm1, pm25, pm4, pm10;
@@ -348,7 +357,6 @@ void loop() {
     Serial.print(AVERAGING_SAMPLES);
     
     // Show countdown to next upload
-    unsigned long currentTime = millis();
     if (currentTime >= lastSendTime) {
         unsigned long timeSinceLast = currentTime - lastSendTime;
         if (timeSinceLast < SEND_INTERVAL) {

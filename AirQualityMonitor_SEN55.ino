@@ -127,18 +127,18 @@ void setup() {
     Serial.println();
 }
 
-void sendToThingSpeak(float pm1, float pm25, float pm4, float pm10, 
+bool sendToThingSpeak(float pm1, float pm25, float pm4, float pm10, 
                       float humidity, float temperature, float voc, float nox) {
     // Validate data before uploading
     if (!isValidReading(pm1, pm25, pm4, pm10, humidity, temperature, voc, nox)) {
         Serial.println("✗ Skipping upload - invalid data detected");
-        return;
+        return false;
     }
     
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("✗ WiFi Disconnected! Reconnecting...");
         WiFi.begin(ssid, password);
-        return;
+        return false;
     }
     
     HTTPClient http;
@@ -162,6 +162,7 @@ void sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
     http.setTimeout(10000);
     
     int httpResponseCode = http.GET();
+    bool success = false;
     
     if (httpResponseCode > 0) {
         String response = http.getString();
@@ -174,6 +175,7 @@ void sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
         
         if (httpResponseCode == 200 && response.toInt() > 0) {
             Serial.println("✓ SUCCESS! Entry #" + response);
+            success = true;
         } else {
             Serial.println("✗ Upload failed - check API key or rate limit");
         }
@@ -188,6 +190,7 @@ void sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
     Serial.println();
     
     http.end();
+    return success;
 }
 
 void loop() {
@@ -276,8 +279,14 @@ void loop() {
             Serial.print(AVERAGING_SAMPLES);
             Serial.println(" samples)");
             
-            sendToThingSpeak(avgPm1, avgPm25, avgPm4, avgPm10,
-                           avgHumidity, avgTemperature, avgVoc, avgNox);
+            bool uploadSuccess = sendToThingSpeak(avgPm1, avgPm25, avgPm4, avgPm10,
+                                                  avgHumidity, avgTemperature, avgVoc, avgNox);
+            
+            if (uploadSuccess) {
+                dataAveraging.reset(); // Only reset on successful upload
+            } else {
+                Serial.println("⚠️  Data preserved for retry on next interval");
+            }
             
             lastSendTime = currentTime;
         } else {

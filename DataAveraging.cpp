@@ -35,7 +35,7 @@ void DataAveraging::getAveraged(float &pm1, float &pm25, float &pm4, float &pm10
     voc = data.voc / data.count;
     nox = data.nox / data.count;
     
-    reset(); // Reset for next averaging cycle
+    // NOTE: Caller must explicitly call reset() after successful upload
 }
 
 void DataAveraging::reset() {

@@ -289,4 +289,7 @@ void loop() {
             Serial.println(") before upload...");
         }
     }
+    
+    // Add reading to running average after upload check
+    dataAveraging.addReading(pm1, pm25, pm4, pm10, humidity, temperature, voc, nox);
 }

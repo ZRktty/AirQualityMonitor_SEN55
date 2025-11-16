@@ -12,4 +12,8 @@ const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 const char* THINGSPEAK_API_KEY = "YOUR_THINGSPEAK_API_KEY";
 const unsigned long THINGSPEAK_CHANNEL_ID = 0;
 
+// OTA settings
+const char* OTA_HOSTNAME = "SEN55-AirQuality";
+const char* OTA_PASSWORD = "YOUR_OTA_PASSWORD";
+
 #endif

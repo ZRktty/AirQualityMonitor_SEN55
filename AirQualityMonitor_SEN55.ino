@@ -1,6 +1,8 @@
+
 /*
- * SEN55 with ThingSpeak Data Logging
+ * SEN55 with ThingSpeak Data Logging + OTA Updates
  * Sends sensor data to ThingSpeak cloud
+ * Supports Over-The-Air firmware updates
  */
 
 #include <Arduino.h>
@@ -8,6 +10,7 @@
 #include <Wire.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <ArduinoOTA.h>
 #include "config.h"  // Local configuration file (not in Git)
 #include "DataAveraging.h"
 #include "SensorUtils.h"
@@ -20,6 +23,10 @@ const char* password = WIFI_PASSWORD;
 const char* writeAPIKey = THINGSPEAK_API_KEY;
 unsigned long channelID = THINGSPEAK_CHANNEL_ID;
 
+// OTA settings (from config.h)
+const char* otaHostname = OTA_HOSTNAME;
+const char* otaPassword = OTA_PASSWORD;
+
 // I2C pins for ESP32-S3
 #define I2C_SDA 1
 #define I2C_SCL 2
@@ -29,9 +36,86 @@ const unsigned long SEND_INTERVAL = 20000; // 20 seconds to be safe
 const unsigned long SENSOR_READ_INTERVAL = 1000; // Read sensor every second
 
 unsigned long lastSendTime = 0;
+unsigned long lastSensorReadTime = 0;
+
+// OTA update flag
+bool otaInProgress = false;
 
 SensirionI2CSen5x sen5x;
 DataAveraging dataAveraging;
+
+void setupOTA() {
+    Serial.println("Configuring OTA updates...");
+    
+    ArduinoOTA.setHostname(otaHostname);
+    ArduinoOTA.setPassword(otaPassword);
+    
+    ArduinoOTA.onStart([]() {
+        String type;
+        if (ArduinoOTA.getCommand() == U_FLASH) {
+            type = "sketch";
+        } else { // U_SPIFFS
+            type = "filesystem";
+        }
+        Serial.println("\n🔄 OTA: Starting update (" + type + ")");
+        Serial.println("⚠️  Do not power off!");
+        
+        // Stop sensor measurements during OTA
+        otaInProgress = true;
+        uint16_t error = sen5x.stopMeasurement();
+        if (error) {
+            Serial.println("⚠️  Could not stop sensor measurements");
+        } else {
+            Serial.println("✓ Sensor measurements stopped");
+        }
+    });
+    
+    ArduinoOTA.onEnd([]() {
+        Serial.println("\n✓ OTA: Update complete!");
+        Serial.println("Rebooting...");
+        // No need to restart measurements - device will reboot
+    });
+    
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        static unsigned int lastPercent = 0;
+        unsigned int percent = 0;
+        if (total != 0) {
+            percent = (progress * 100) / total;
+        }
+        if (percent != lastPercent && percent % 10 == 0) {
+            Serial.printf("OTA Progress: %u%%\n", percent);
+            lastPercent = percent;
+        }
+    });
+    
+    ArduinoOTA.onError([](ota_error_t error) {
+        Serial.printf("\n✗ OTA Error[%u]: ", error);
+        if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+        else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+        else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+        else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+        else if (error == OTA_END_ERROR) Serial.println("End Failed");
+        
+        // Restart measurements on OTA error
+        otaInProgress = false;
+        uint16_t restartError = sen5x.startMeasurement();
+        if (restartError) {
+            Serial.println("⚠️  Could not restart sensor measurements");
+        } else {
+            Serial.println("✓ Sensor measurements restarted");
+        }
+    });
+    
+    ArduinoOTA.begin();
+    
+    Serial.println("✓ OTA Ready!");
+    Serial.print("  Hostname: ");
+    Serial.println(otaHostname);
+    Serial.print("  IP: ");
+    Serial.println(WiFi.localIP());
+    Serial.println("  Upload via: Tools → Port → Network ports");
+    Serial.println();
+}
 
 void setup() {
     Serial.begin(115200);
@@ -63,6 +147,9 @@ void setup() {
     Serial.print("ThingSpeak Channel: ");
     Serial.println(channelID);
     Serial.println();
+
+     // Setup OTA
+    setupOTA();
 
     // Initialize I2C
     Serial.println("Initializing I2C...");
@@ -194,7 +281,24 @@ bool sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
 }
 
 void loop() {
-    delay(SENSOR_READ_INTERVAL);
+     // Handle OTA updates (must be called frequently)
+    ArduinoOTA.handle();
+    
+    // Skip sensor operations during OTA update
+    if (otaInProgress) {
+        delay(10); // Very short delay, allows OTA.handle() to be called ~100x per second
+        return;
+    }
+    
+    unsigned long currentTime = millis();
+    
+    // Non-blocking sensor reading - only read every SENSOR_READ_INTERVAL
+    if (currentTime - lastSensorReadTime < SENSOR_READ_INTERVAL) {
+        delay(10); // Short delay to prevent tight loop, but still responsive to OTA
+        return;
+    }
+    
+    lastSensorReadTime = currentTime;
 
     // Read sensor values
     float pm1, pm25, pm4, pm10;
@@ -253,7 +357,6 @@ void loop() {
     Serial.print(AVERAGING_SAMPLES);
     
     // Show countdown to next upload
-    unsigned long currentTime = millis();
     if (currentTime >= lastSendTime) {
         unsigned long timeSinceLast = currentTime - lastSendTime;
         if (timeSinceLast < SEND_INTERVAL) {

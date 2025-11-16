@@ -9,6 +9,8 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include "config.h"  // Local configuration file (not in Git)
+#include "DataAveraging.h"
+#include "SensorUtils.h"
 
 // WiFi credentials (from config.h)
 const char* ssid = WIFI_SSID;
@@ -23,44 +25,13 @@ unsigned long channelID = THINGSPEAK_CHANNEL_ID;
 #define I2C_SCL 2
 
 // Send interval (ThingSpeak free tier: minimum 15 seconds between updates)
-const unsigned long sendInterval = 20000; // 20 seconds to be safe
+const unsigned long SEND_INTERVAL = 20000; // 20 seconds to be safe
+const unsigned long SENSOR_READ_INTERVAL = 1000; // Read sensor every second
+
 unsigned long lastSendTime = 0;
 
 SensirionI2CSen5x sen5x;
-
-// Function to get PM2.5 air quality status
-void getPM25Quality(float pm25, String &quality, String &colorIcon) {
-    if (pm25 <= 15) {
-        quality = "GOOD";
-        colorIcon = "🟢";
-    } else if (pm25 <= 35) {
-        quality = "MODERATE";
-        colorIcon = "🟡";
-    } else if (pm25 <= 55) {
-        quality = "UNHEALTHY (Sensitive)";
-        colorIcon = "🟠";
-    } else {
-        quality = "UNHEALTHY";
-        colorIcon = "🔴";
-    }
-}
-
-// Wait for sensor to stabilize with countdown
-void waitForSensorStabilization() {
-    Serial.println();
-    Serial.println("Waiting for sensor to stabilize...");
-    Serial.println("(SEN55 needs ~10 seconds after power-on)");
-    
-    for (int i = 10; i > 0; i--) {
-        Serial.print("Starting in ");
-        Serial.print(i);
-        Serial.println(" seconds...");
-        delay(1000);
-    }
-    
-    Serial.println();
-    Serial.println("Sensor ready! Starting measurements...");
-}
+DataAveraging dataAveraging;
 
 void setup() {
     Serial.begin(115200);
@@ -156,18 +127,18 @@ void setup() {
     Serial.println();
 }
 
-void sendToThingSpeak(float pm1, float pm25, float pm4, float pm10, 
+bool sendToThingSpeak(float pm1, float pm25, float pm4, float pm10, 
                       float humidity, float temperature, float voc, float nox) {
-    // Double-check data validity before uploading
-    if (isnan(pm25) || isnan(temperature) || voc < 0 || voc > 500) {
+    // Validate data before uploading
+    if (!isValidReading(pm1, pm25, pm4, pm10, humidity, temperature, voc, nox)) {
         Serial.println("✗ Skipping upload - invalid data detected");
-        return;
+        return false;
     }
     
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("✗ WiFi Disconnected! Reconnecting...");
         WiFi.begin(ssid, password);
-        return;
+        return false;
     }
     
     HTTPClient http;
@@ -191,6 +162,7 @@ void sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
     http.setTimeout(10000);
     
     int httpResponseCode = http.GET();
+    bool success = false;
     
     if (httpResponseCode > 0) {
         String response = http.getString();
@@ -203,6 +175,7 @@ void sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
         
         if (httpResponseCode == 200 && response.toInt() > 0) {
             Serial.println("✓ SUCCESS! Entry #" + response);
+            success = true;
         } else {
             Serial.println("✗ Upload failed - check API key or rate limit");
         }
@@ -217,42 +190,33 @@ void sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
     Serial.println();
     
     http.end();
+    return success;
 }
 
 void loop() {
-    uint16_t error;
-    char errorMessage[256];
-
-    delay(1000);
+    delay(SENSOR_READ_INTERVAL);
 
     // Read sensor values
     float pm1, pm25, pm4, pm10;
     float humidity, temperature, voc, nox;
 
-    error = sen5x.readMeasuredValues(
+    uint16_t error = sen5x.readMeasuredValues(
         pm1, pm25, pm4, pm10, humidity, temperature, voc, nox);
 
     if (error) {
-        Serial.print("ERROR reading sensor: ");
+        char errorMessage[256];
         errorToString(error, errorMessage, 256);
+        Serial.print("ERROR reading sensor: ");
         Serial.println(errorMessage);
         Serial.println("⚠️  Check wiring! Skipping this reading...");
         return;
     }
 
-    // Validate data - skip if any value is NaN or invalid
-    if (isnan(pm1) || isnan(pm25) || isnan(pm4) || isnan(pm10) || 
-        isnan(humidity) || isnan(temperature) || isnan(voc) || isnan(nox)) {
-        Serial.println("⚠️  WARNING: Invalid sensor data (NaN detected)");
+    // Validate sensor data
+    if (!isValidReading(pm1, pm25, pm4, pm10, humidity, temperature, voc, nox)) {
+        Serial.println("⚠️  WARNING: Invalid sensor data detected");
         Serial.println("   Check I2C connections and power supply!");
-        delay(2000); // Wait a bit before retrying
-        return;
-    }
-
-    // Additional sanity check for extreme values
-    if (voc < 0 || voc > 500 || nox < 0 || nox > 500) {
-        Serial.println("⚠️  WARNING: VOC/NOx values out of range");
-        Serial.println("   Sensor communication issue - skipping upload");
+        delay(1000); // Brief delay before retrying
         return;
     }
 
@@ -282,12 +246,18 @@ void loop() {
     Serial.print(" | NOx:");
     Serial.print((int)nox);
     
+    // Show averaging progress
+    Serial.print(" | Avg:");
+    Serial.print(dataAveraging.getCount());
+    Serial.print("/");
+    Serial.print(AVERAGING_SAMPLES);
+    
     // Show countdown to next upload
     unsigned long currentTime = millis();
-    if (currentTime >= lastSendTime) { // Prevent underflow
+    if (currentTime >= lastSendTime) {
         unsigned long timeSinceLast = currentTime - lastSendTime;
-        if (timeSinceLast < sendInterval) {
-            unsigned long timeUntilSend = (sendInterval - timeSinceLast) / 1000;
+        if (timeSinceLast < SEND_INTERVAL) {
+            unsigned long timeUntilSend = (SEND_INTERVAL - timeSinceLast) / 1000;
             Serial.print(" | Upload in ");
             Serial.print(timeUntilSend);
             Serial.print("s");
@@ -295,9 +265,41 @@ void loop() {
     }
     Serial.println();
 
-    // Send to ThingSpeak periodically
-    if (currentTime - lastSendTime >= sendInterval) {
-        sendToThingSpeak(pm1, pm25, pm4, pm10, humidity, temperature, voc, nox);
-        lastSendTime = currentTime;
+    // Send to ThingSpeak periodically with averaged data
+    if (currentTime - lastSendTime >= SEND_INTERVAL) {
+        if (dataAveraging.hasEnoughSamples()) {
+            float avgPm1, avgPm25, avgPm4, avgPm10;
+            float avgHumidity, avgTemperature, avgVoc, avgNox;
+            
+            dataAveraging.getAveraged(avgPm1, avgPm25, avgPm4, avgPm10,
+                                     avgHumidity, avgTemperature, avgVoc, avgNox);
+            
+            Serial.println();
+            Serial.print("📊 Uploading averaged data (");
+            Serial.print(AVERAGING_SAMPLES);
+            Serial.println(" samples)");
+            
+            bool uploadSuccess = sendToThingSpeak(avgPm1, avgPm25, avgPm4, avgPm10,
+                                                  avgHumidity, avgTemperature, avgVoc, avgNox);
+            
+            if (uploadSuccess) {
+                dataAveraging.reset(); // Only reset on successful upload
+            } else {
+                Serial.println("⚠️  Data preserved for retry on next interval");
+            }
+            
+            lastSendTime = currentTime;
+        } else {
+            Serial.println();
+            Serial.print("⏳ Collecting more samples (");
+            Serial.print(dataAveraging.getCount());
+            Serial.print("/");
+            Serial.print(AVERAGING_SAMPLES);
+            Serial.println(") before upload...");
+            lastSendTime = currentTime; // Update to prevent spam on next iteration
+        }
     }
+    
+    // Add reading to running average after upload check
+    dataAveraging.addReading(pm1, pm25, pm4, pm10, humidity, temperature, voc, nox);
 }

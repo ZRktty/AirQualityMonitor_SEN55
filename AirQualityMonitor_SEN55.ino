@@ -37,6 +37,9 @@ const unsigned long SENSOR_READ_INTERVAL = 1000; // Read sensor every second
 
 unsigned long lastSendTime = 0;
 
+// OTA update flag
+bool otaInProgress = false;
+
 SensirionI2CSen5x sen5x;
 DataAveraging dataAveraging;
 
@@ -55,11 +58,21 @@ void setupOTA() {
         }
         Serial.println("\n🔄 OTA: Starting update (" + type + ")");
         Serial.println("⚠️  Do not power off!");
+        
+        // Stop sensor measurements during OTA
+        otaInProgress = true;
+        uint16_t error = sen5x.stopMeasurement();
+        if (error) {
+            Serial.println("⚠️  Could not stop sensor measurements");
+        } else {
+            Serial.println("✓ Sensor measurements stopped");
+        }
     });
     
     ArduinoOTA.onEnd([]() {
         Serial.println("\n✓ OTA: Update complete!");
         Serial.println("Rebooting...");
+        // No need to restart measurements - device will reboot
     });
     
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
@@ -78,6 +91,15 @@ void setupOTA() {
         else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
         else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
         else if (error == OTA_END_ERROR) Serial.println("End Failed");
+        
+        // Restart measurements on OTA error
+        otaInProgress = false;
+        uint16_t restartError = sen5x.startMeasurement();
+        if (restartError) {
+            Serial.println("⚠️  Could not restart sensor measurements");
+        } else {
+            Serial.println("✓ Sensor measurements restarted");
+        }
     });
     
     ArduinoOTA.begin();
@@ -257,6 +279,12 @@ bool sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
 void loop() {
      // Handle OTA updates (must be called frequently)
     ArduinoOTA.handle();
+    
+    // Skip sensor operations during OTA update
+    if (otaInProgress) {
+        delay(100); // Short delay to keep OTA responsive
+        return;
+    }
     
     delay(SENSOR_READ_INTERVAL);
 

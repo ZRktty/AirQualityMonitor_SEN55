@@ -1,6 +1,8 @@
+
 /*
- * SEN55 with ThingSpeak Data Logging
+ * SEN55 with ThingSpeak Data Logging + OTA Updates
  * Sends sensor data to ThingSpeak cloud
+ * Supports Over-The-Air firmware updates
  */
 
 #include <Arduino.h>
@@ -8,6 +10,7 @@
 #include <Wire.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <ArduinoOTA.h>
 #include "config.h"  // Local configuration file (not in Git)
 #include "DataAveraging.h"
 #include "SensorUtils.h"
@@ -19,6 +22,10 @@ const char* password = WIFI_PASSWORD;
 // ThingSpeak settings (from config.h)
 const char* writeAPIKey = THINGSPEAK_API_KEY;
 unsigned long channelID = THINGSPEAK_CHANNEL_ID;
+
+// OTA settings (from config.h)
+const char* otaHostname = OTA_HOSTNAME;
+const char* otaPassword = OTA_PASSWORD;
 
 // I2C pins for ESP32-S3
 #define I2C_SDA 1
@@ -32,6 +39,57 @@ unsigned long lastSendTime = 0;
 
 SensirionI2CSen5x sen5x;
 DataAveraging dataAveraging;
+
+void setupOTA() {
+    Serial.println("Configuring OTA updates...");
+    
+    ArduinoOTA.setHostname(otaHostname);
+    ArduinoOTA.setPassword(otaPassword);
+    
+    ArduinoOTA.onStart([]() {
+        String type;
+        if (ArduinoOTA.getCommand() == U_FLASH) {
+            type = "sketch";
+        } else { // U_SPIFFS
+            type = "filesystem";
+        }
+        Serial.println("\n🔄 OTA: Starting update (" + type + ")");
+        Serial.println("⚠️  Do not power off!");
+    });
+    
+    ArduinoOTA.onEnd([]() {
+        Serial.println("\n✓ OTA: Update complete!");
+        Serial.println("Rebooting...");
+    });
+    
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        static unsigned int lastPercent = 0;
+        unsigned int percent = (progress / (total / 100));
+        if (percent != lastPercent && percent % 10 == 0) {
+            Serial.printf("OTA Progress: %u%%\n", percent);
+            lastPercent = percent;
+        }
+    });
+    
+    ArduinoOTA.onError([](ota_error_t error) {
+        Serial.printf("\n✗ OTA Error[%u]: ", error);
+        if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+        else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+        else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+        else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+        else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    });
+    
+    ArduinoOTA.begin();
+    
+    Serial.println("✓ OTA Ready!");
+    Serial.print("  Hostname: ");
+    Serial.println(otaHostname);
+    Serial.print("  IP: ");
+    Serial.println(WiFi.localIP());
+    Serial.println("  Upload via: Tools → Port → Network ports");
+    Serial.println();
+}
 
 void setup() {
     Serial.begin(115200);
@@ -63,6 +121,9 @@ void setup() {
     Serial.print("ThingSpeak Channel: ");
     Serial.println(channelID);
     Serial.println();
+
+     // Setup OTA
+    setupOTA();
 
     // Initialize I2C
     Serial.println("Initializing I2C...");
@@ -194,6 +255,9 @@ bool sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
 }
 
 void loop() {
+     // Handle OTA updates (must be called frequently)
+    ArduinoOTA.handle();
+    
     delay(SENSOR_READ_INTERVAL);
 
     // Read sensor values

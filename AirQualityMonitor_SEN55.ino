@@ -296,6 +296,7 @@ void loop() {
             Serial.print("/");
             Serial.print(AVERAGING_SAMPLES);
             Serial.println(") before upload...");
+            lastSendTime = currentTime; // Update to prevent spam on next iteration
         }
     }
     

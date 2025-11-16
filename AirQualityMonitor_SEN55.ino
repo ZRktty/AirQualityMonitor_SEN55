@@ -45,6 +45,23 @@ void getPM25Quality(float pm25, String &quality, String &colorIcon) {
     }
 }
 
+// Wait for sensor to stabilize with countdown
+void waitForSensorStabilization() {
+    Serial.println();
+    Serial.println("Waiting for sensor to stabilize...");
+    Serial.println("(SEN55 needs ~10 seconds after power-on)");
+    
+    for (int i = 10; i > 0; i--) {
+        Serial.print("Starting in ");
+        Serial.print(i);
+        Serial.println(" seconds...");
+        delay(1000);
+    }
+    
+    Serial.println();
+    Serial.println("Sensor ready! Starting measurements...");
+}
+
 void setup() {
     Serial.begin(115200);
     delay(1000); // Give serial time to initialize
@@ -131,7 +148,9 @@ void setup() {
         Serial.println("Measurement started successfully!");
     }
     
-    Serial.println();
+    // Wait for sensor to stabilize and provide valid readings
+    waitForSensorStabilization();
+    
     Serial.println("Waiting 20 seconds before first upload...");
     Serial.println("================================");
     Serial.println();

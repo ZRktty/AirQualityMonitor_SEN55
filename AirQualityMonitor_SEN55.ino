@@ -26,7 +26,53 @@ unsigned long channelID = THINGSPEAK_CHANNEL_ID;
 const unsigned long sendInterval = 20000; // 20 seconds to be safe
 unsigned long lastSendTime = 0;
 
+// Data averaging settings
+const int AVERAGING_SAMPLES = 10;  // Average 10 readings before upload
+struct SensorData {
+    float pm1;
+    float pm25;
+    float pm4;
+    float pm10;
+    float humidity;
+    float temperature;
+    float voc;
+    float nox;
+    int count;
+} averageData = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+
 SensirionI2CSen5x sen5x;
+
+// Function to add reading to running average
+void addToAverage(float pm1, float pm25, float pm4, float pm10,
+                  float humidity, float temperature, float voc, float nox) {
+    averageData.pm1 += pm1;
+    averageData.pm25 += pm25;
+    averageData.pm4 += pm4;
+    averageData.pm10 += pm10;
+    averageData.humidity += humidity;
+    averageData.temperature += temperature;
+    averageData.voc += voc;
+    averageData.nox += nox;
+    averageData.count++;
+}
+
+// Function to get averaged values and reset
+void getAveragedData(float &pm1, float &pm25, float &pm4, float &pm10,
+                     float &humidity, float &temperature, float &voc, float &nox) {
+    if (averageData.count == 0) return; // Prevent division by zero
+    
+    pm1 = averageData.pm1 / averageData.count;
+    pm25 = averageData.pm25 / averageData.count;
+    pm4 = averageData.pm4 / averageData.count;
+    pm10 = averageData.pm10 / averageData.count;
+    humidity = averageData.humidity / averageData.count;
+    temperature = averageData.temperature / averageData.count;
+    voc = averageData.voc / averageData.count;
+    nox = averageData.nox / averageData.count;
+    
+    // Reset for next averaging cycle
+    averageData = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+}
 
 // Function to get PM2.5 air quality status
 void getPM25Quality(float pm25, String &quality, String &colorIcon) {
@@ -260,6 +306,9 @@ void loop() {
     String pm25Quality, pm25Color;
     getPM25Quality(pm25, pm25Quality, pm25Color);
 
+    // Add current reading to running average
+    addToAverage(pm1, pm25, pm4, pm10, humidity, temperature, voc, nox);
+
     // Print to serial (formatted nicely with all PM values)
     Serial.print("PM1.0:");
     Serial.print(pm1, 1);
@@ -282,6 +331,12 @@ void loop() {
     Serial.print(" | NOx:");
     Serial.print((int)nox);
     
+    // Show averaging progress
+    Serial.print(" | Avg:");
+    Serial.print(averageData.count);
+    Serial.print("/");
+    Serial.print(AVERAGING_SAMPLES);
+    
     // Show countdown to next upload
     unsigned long currentTime = millis();
     if (currentTime >= lastSendTime) { // Prevent underflow
@@ -295,9 +350,33 @@ void loop() {
     }
     Serial.println();
 
-    // Send to ThingSpeak periodically
+    // Send to ThingSpeak periodically with averaged data
     if (currentTime - lastSendTime >= sendInterval) {
-        sendToThingSpeak(pm1, pm25, pm4, pm10, humidity, temperature, voc, nox);
-        lastSendTime = currentTime;
+        // Only upload if we have enough samples
+        if (averageData.count >= AVERAGING_SAMPLES) {
+            // Get averaged values
+            float avgPm1, avgPm25, avgPm4, avgPm10;
+            float avgHumidity, avgTemperature, avgVoc, avgNox;
+            
+            getAveragedData(avgPm1, avgPm25, avgPm4, avgPm10,
+                          avgHumidity, avgTemperature, avgVoc, avgNox);
+            
+            Serial.println();
+            Serial.print("📊 Uploading averaged data (");
+            Serial.print(AVERAGING_SAMPLES);
+            Serial.println(" samples)");
+            
+            sendToThingSpeak(avgPm1, avgPm25, avgPm4, avgPm10,
+                           avgHumidity, avgTemperature, avgVoc, avgNox);
+            
+            lastSendTime = currentTime;
+        } else {
+            Serial.println();
+            Serial.print("⏳ Collecting more samples (");
+            Serial.print(averageData.count);
+            Serial.print("/");
+            Serial.print(AVERAGING_SAMPLES);
+            Serial.println(") before upload...");
+        }
     }
 }

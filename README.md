@@ -27,7 +27,12 @@ This project creates an all-in-one air quality monitor that measures particulate
 
 ### 🚧 In Development
 
-- **Local Web Dashboard**: Real-time visualization via browser (see [Web Dashboard Plan](docs/plans/web-dashboard-feature.md))
+- **Local Web Dashboard**: Real-time WebSocket-based visualization
+  - WebSocket-only updates (no polling)
+  - LittleFS storage for easy UI updates
+  - Reusable gauge components (DRY principles)
+  - Mobile-responsive design
+  - See [Web Dashboard Plan](docs/plans/web-dashboard-feature.md)
 - **MQTT Integration**: Home automation support
 - **Display Support**: OLED/E-ink screen integration
 
@@ -77,6 +82,10 @@ Install via Arduino IDE Library Manager:
 - HTTPClient (ESP32 built-in)
 - ArduinoOTA (ESP32 built-in)
 - Wire (I2C communication)
+- ESPAsyncWebServer by me-no-dev (web dashboard)
+- AsyncTCP by me-no-dev (dependency for web server)
+- ArduinoJson by Benoit Blanchon (JSON serialization)
+- LittleFS (ESP32 built-in, filesystem for web assets)
 ```
 
 ### Board Support
@@ -111,6 +120,10 @@ const unsigned long THINGSPEAK_CHANNEL_ID = YOUR_CHANNEL_ID;
 // OTA settings
 const char* OTA_HOSTNAME = "SEN55-AirQuality";
 const char* OTA_PASSWORD = "YOUR_OTA_PASSWORD";
+
+// Web Dashboard
+// Accessible at http://<device-ip>/ or http://sen55-airquality.local/
+// Real-time updates via WebSocket (no configuration needed)
 ```
 
 ### 3. ThingSpeak Setup
@@ -168,6 +181,9 @@ ThingSpeak Channel: 3166664
   IP: 192.168.1.100
   Upload via: Tools → Port → Network ports
 
+🌐 Web Dashboard: http://192.168.1.100/
+📱 Mobile Access: http://sen55-airquality.local/
+
 ================================
 
 PM1.0:8.2 | PM2.5:12.5 µg/m³ 🟢 [GOOD] | PM4:15.1 | PM10:18.3 | Temp:22.3°C | Hum:45.2% | VOC:120 | NOx:85 | Avg:15/20 | Upload in 5s
@@ -190,6 +206,35 @@ PM1.0:8.2 | PM2.5:12.5 µg/m³ 🟢 [GOOD] | PM4:15.1 | PM10:18.3 | Temp:22.3°C
 - **Upload Retry**: Data preserved on failure for next interval
 - **ThingSpeak Limit**: 15-second minimum (free tier)
 
+### Web Dashboard Access
+
+Once the device is connected to WiFi, access the dashboard:
+
+**By IP Address:**
+- Open browser to `http://<device-ip>/` (see Serial Monitor for IP)
+- Example: `http://192.168.1.100/`
+
+**By Hostname (mDNS):**
+- Open browser to `http://sen55-airquality.local/`
+- Works on macOS/iOS natively
+- Windows requires Bonjour service
+
+**Dashboard Features:**
+- Real-time sensor readings (1 Hz updates via WebSocket)
+- Color-coded PM2.5 gauge with AQI zones
+- Individual gauges for VOC and NOx indices
+- Temperature, humidity, and particulate matter cards
+- 1-minute history sparkline charts
+- System status (WiFi signal, uptime, connection)
+- Mobile-responsive design
+
+**Technical Details:**
+- WebSocket-only updates (no REST polling)
+- Sub-second latency
+- Automatic reconnection on disconnect
+- LittleFS storage for web assets
+- Reusable gauge components
+
 ## 🏗 Project Structure
 
 ```
@@ -199,6 +244,11 @@ AirQualityMonitor_SEN55/
 ├── SensorUtils.cpp/h            # Sensor utilities and validation
 ├── config.h                     # Local configuration (gitignored)
 ├── config.example.h             # Configuration template
+├── data/                        # LittleFS web assets (upload to device)
+│   ├── index.html              # Dashboard HTML
+│   ├── style.css               # Dashboard styles
+│   ├── script.js               # WebSocket client & UI logic
+│   └── favicon.ico             # Browser icon
 ├── docs/
 │   └── plans/
 │       └── web-dashboard-feature.md  # Feature planning docs
@@ -252,6 +302,29 @@ ERROR reading sensor: Error trying to execute operation
 - Verify OTA hostname in **Tools → Port → Network ports**
 - Wait 30 seconds after device boots for OTA to initialize
 
+### Web Dashboard Not Loading
+
+**Solution:**
+
+- Verify device IP address in Serial Monitor
+- Ensure device and computer are on same WiFi network
+- Try IP address if mDNS hostname doesn't work
+- Check that LittleFS files were uploaded (Tools → ESP32 Sketch Data Upload)
+- Clear browser cache and reload page
+
+### WebSocket Connection Failing
+
+```
+Connection Error - Reconnecting...
+```
+
+**Solution:**
+
+- Check browser console for errors (F12 → Console)
+- Verify WebSocket port not blocked by firewall
+- Try different browser (Chrome/Firefox recommended)
+- Restart device and refresh browser page
+
 ## 🔐 Security Notes
 
 - `config.h` is gitignored to protect credentials
@@ -263,12 +336,17 @@ ERROR reading sensor: Error trying to execute operation
 
 See [docs/plans/](docs/plans/) for detailed feature planning:
 
-- **Web Dashboard**: Local real-time monitoring interface
+- **Web Dashboard v2.0**: 
+  - Configuration page (WiFi, ThingSpeak, calibration)
+  - 24-hour trend graphs
+  - AQI calculations (EPA standard)
+  - CSV data export
+  - Authentication/security
 - **MQTT Integration**: Home Assistant / Node-RED support
 - **Historical Data**: SD card logging and export
-- **Calibration Interface**: Web-based sensor adjustment
 - **Multi-Device Support**: Network of monitors
 - **Battery Operation**: Deep sleep power optimization
+- **Notifications**: Threshold alerts via email/Telegram
 
 ## 🤝 Contributing
 

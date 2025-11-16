@@ -1,0 +1,19 @@
+# Credentials - DO NOT COMMIT
+config.h
+
+# Arduino build files
+build/
+*.hex
+*.elf
+*.bin
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

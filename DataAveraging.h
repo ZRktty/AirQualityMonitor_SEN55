@@ -9,7 +9,7 @@
 #include <Arduino.h>
 
 // Data averaging settings
-const int AVERAGING_SAMPLES = 10;  // Average 10 readings before upload
+const int AVERAGING_SAMPLES = 20;  // Average 20 readings before upload
 
 struct SensorData {
     float pm1;

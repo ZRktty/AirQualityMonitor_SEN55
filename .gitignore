@@ -1,5 +1,6 @@
 # Credentials - DO NOT COMMIT
 src/config.h
+secrets.ini
 
 # PlatformIO
 .pio/

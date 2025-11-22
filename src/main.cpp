@@ -10,6 +10,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoOTA.h>
+#include "StatusLed.h"
 #include "config.h"  // Local configuration file (not in Git)
 #include "DataAveraging.h"
 #include "SensorUtils.h"
@@ -25,6 +26,10 @@ unsigned long channelID = THINGSPEAK_CHANNEL_ID;
 // OTA settings (from config.h)
 const char* otaHostname = OTA_HOSTNAME;
 const char* otaPassword = OTA_PASSWORD;
+
+// LED Settings
+#define RGB_BUILTIN_PIN 48
+StatusLed statusLed(RGB_BUILTIN_PIN);
 
 // I2C pins for ESP32-S3
 #define I2C_SDA 1
@@ -125,6 +130,9 @@ void setup() {
     Serial.println("=== SEN55 ThingSpeak Logger ===");
     Serial.println("================================");
     Serial.println();
+
+    // Initialize LED
+    statusLed.begin();
 
     // Connect to WiFi
     Serial.print("Connecting to WiFi: ");
@@ -322,6 +330,9 @@ void loop() {
         delay(1000); // Brief delay before retrying
         return;
     }
+
+    // Update LED status
+    statusLed.update(pm25);
 
     // Get PM2.5 air quality status
     String pm25Quality, pm25Color;

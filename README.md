@@ -48,7 +48,8 @@ This project creates an all-in-one air quality monitor that measures particulate
 
 Active development plans and migration tasks:
 
-- [ ] **PlatformIO Migration**: Convert project to PlatformIO structure for better dependency management (see [Plan](docs/plans/platformio-migration.md))
+- [x] **PlatformIO Migration**: Convert project to PlatformIO structure for better dependency management (see [Plan](docs/plans/platformio-migration.md))
+
 - [ ] **Web Dashboard v1**: Basic WebSocket dashboard (see [Plan](docs/plans/web-dashboard-feature.md))
 
 ## 🛠 Hardware
@@ -218,15 +219,18 @@ PM1.0:8.2 | PM2.5:12.5 µg/m³ 🟢 [GOOD] | PM4:15.1 | PM10:18.3 | Temp:22.3°C
 Once the device is connected to WiFi, access the dashboard:
 
 **By IP Address:**
+
 - Open browser to `http://<device-ip>/` (see Serial Monitor for IP)
 - Example: `http://192.168.1.100/`
 
 **By Hostname (mDNS):**
+
 - Open browser to `http://sen55-airquality.local/`
 - Works on macOS/iOS natively
 - Windows requires Bonjour service
 
 **Dashboard Features:**
+
 - Real-time sensor readings (1 Hz updates via WebSocket)
 - Color-coded PM2.5 gauge with AQI zones
 - Individual gauges for VOC and NOx indices
@@ -236,6 +240,7 @@ Once the device is connected to WiFi, access the dashboard:
 - Mobile-responsive design
 
 **Technical Details:**
+
 - WebSocket-only updates (no REST polling)
 - Sub-second latency
 - Automatic reconnection on disconnect
@@ -343,7 +348,7 @@ Connection Error - Reconnecting...
 
 See [docs/plans/](docs/plans/) for detailed feature planning:
 
-- **Web Dashboard v2.0**: 
+- **Web Dashboard v2.0**:
   - Configuration page (WiFi, ThingSpeak, calibration)
   - 24-hour trend graphs
   - AQI calculations (EPA standard)

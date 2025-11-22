@@ -10,7 +10,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoOTA.h>
-#include <Adafruit_NeoPixel.h>
+#include "StatusLed.h"
 #include "config.h"  // Local configuration file (not in Git)
 #include "DataAveraging.h"
 #include "SensorUtils.h"
@@ -29,9 +29,7 @@ const char* otaPassword = OTA_PASSWORD;
 
 // LED Settings
 #define RGB_BUILTIN_PIN 48
-#define NUM_PIXELS 1
-Adafruit_NeoPixel pixels(NUM_PIXELS, RGB_BUILTIN_PIN, NEO_GRB + NEO_KHZ800);
-float currentPm25 = 0.0;
+StatusLed statusLed(RGB_BUILTIN_PIN);
 
 // I2C pins for ESP32-S3
 #define I2C_SDA 1
@@ -134,10 +132,7 @@ void setup() {
     Serial.println();
 
     // Initialize LED
-    pixels.begin();
-    pixels.setBrightness(20);
-    pixels.clear();
-    pixels.show();
+    statusLed.begin();
 
     // Connect to WiFi
     Serial.print("Connecting to WiFi: ");
@@ -292,21 +287,6 @@ bool sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
     return success;
 }
 
-void updateStatusLed() {
-    uint32_t color;
-    if (currentPm25 <= 15.0) {
-        color = pixels.Color(0, 255, 0); // Green
-    } else if (currentPm25 <= 35.0) {
-        color = pixels.Color(255, 255, 0); // Yellow
-    } else if (currentPm25 <= 55.0) {
-        color = pixels.Color(255, 30, 0); // Deep Orange
-    } else {
-        color = pixels.Color(255, 0, 0); // Red
-    }
-    pixels.setPixelColor(0, color);
-    pixels.show();
-}
-
 void loop() {
      // Handle OTA updates (must be called frequently)
     ArduinoOTA.handle();
@@ -351,9 +331,8 @@ void loop() {
         return;
     }
 
-    // Update global PM2.5 for LED
-    currentPm25 = pm25;
-    updateStatusLed();
+    // Update LED status
+    statusLed.update(pm25);
 
     // Get PM2.5 air quality status
     String pm25Quality, pm25Color;

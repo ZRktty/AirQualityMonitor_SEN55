@@ -44,6 +44,13 @@ This project creates an all-in-one air quality monitor that measures particulate
 - **Battery Power Option**: Portable deployment
 - **AQI Calculations**: EPA Air Quality Index
 
+## 📅 Development Plans
+
+Active development plans and migration tasks:
+
+- [ ] **PlatformIO Migration**: Convert project to PlatformIO structure for better dependency management (see [Plan](docs/plans/platformio-migration.md))
+- [ ] **Web Dashboard v1**: Basic WebSocket dashboard (see [Plan](docs/plans/web-dashboard-feature.md))
+
 ## 🛠 Hardware
 
 ### Current Components

@@ -1,4 +1,3 @@
-
 /*
  * SEN55 with ThingSpeak Data Logging + OTA Updates
  * Sends sensor data to ThingSpeak cloud

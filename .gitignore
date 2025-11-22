@@ -1,5 +1,10 @@
 # Credentials - DO NOT COMMIT
-config.h
+src/config.h
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
 
 # Arduino build files
 build/

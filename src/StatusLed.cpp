@@ -6,7 +6,7 @@ StatusLed::StatusLed(int pin, int numPixels)
 
 void StatusLed::begin() {
     pixels.begin();
-    pixels.setBrightness(20);
+    pixels.setBrightness(10);
     pixels.clear();
     pixels.show();
 }
@@ -17,7 +17,7 @@ void StatusLed::update(float pm25) {
     if (pm25 <= 15.0) {
         color = pixels.Color(0, 255, 0); // Green (Good)
     } else if (pm25 <= 35.0) {
-        color = pixels.Color(255, 255, 0); // Yellow (Moderate)
+        color = pixels.Color(255, 190, 0); // Yellow (Moderate)
     } else if (pm25 <= 55.0) {
         color = pixels.Color(255, 30, 0); // Deep Orange (Unhealthy for Sensitive)
     } else {

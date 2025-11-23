@@ -21,11 +21,18 @@
 - **Member Variables:** Use `camelCase` with descriptive names (e.g., `sensorData`, `retryCount`)
 
 ### Performance Guidelines
-- **Memory Management:** Minimize dynamic memory allocation. Prefer stack allocation and static buffers.
+- **Memory Management:** 
+  - Board: ESP32-S3 with 320KB SRAM + 8MB PSRAM
+  - Minimize dynamic memory allocation in tight loops
+  - Prefer stack allocation for small objects (<1KB)
+  - Use PSRAM for large buffers (images, audio, large arrays)
+  - Monitor heap fragmentation with `ESP.getFreeHeap()` and `ESP.getHeapSize()`
+  - Avoid memory leaks by properly deallocating resources
 - **Loop Efficiency:** Avoid blocking operations in `loop()`. Use non-blocking patterns and millis() for timing.
 - **Serial Output:** Minimize `Serial.print()` calls in production code. Use conditional compilation for debug output.
 - **Sensor Polling:** Implement appropriate delays between sensor readings to avoid overwhelming I2C/SPI buses.
 - **String Usage:** Avoid excessive String concatenation. Prefer char arrays or F() macro for constant strings.
+- **PSRAM Usage:** Leverage 8MB PSRAM for data buffering, averaging arrays, and WiFi/network buffers when available.
 
 ### Documentation Style
 - **Doxygen Comments:** Use Doxygen-style comments for all functions and classes:

@@ -14,10 +14,10 @@
 #include "config.h"  // Local configuration file (not in Git)
 #include "DataAveraging.h"
 #include "SensorUtils.h"
+#include "NetworkManager.h"
 
-// WiFi credentials (from config.h)
-const char* ssid = WIFI_SSID;
-const char* password = WIFI_PASSWORD;
+// Network Manager
+NetworkManager networkManager(WIFI_SSID, WIFI_PASSWORD);
 
 // ThingSpeak settings (from config.h)
 const char* writeAPIKey = THINGSPEAK_API_KEY;
@@ -116,7 +116,7 @@ void setupOTA() {
     Serial.print("  Hostname: ");
     Serial.println(otaHostname);
     Serial.print("  IP: ");
-    Serial.println(WiFi.localIP());
+    Serial.println(networkManager.getIP());
     Serial.println("  Upload via: Tools → Port → Network ports");
     Serial.println();
 }
@@ -134,23 +134,13 @@ void setup() {
     // Initialize LED
     statusLed.begin();
 
-    // Connect to WiFi
-    Serial.print("Connecting to WiFi: ");
-    Serial.println(ssid);
-    WiFi.begin(ssid, password);
-    
-    int dots = 0;
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-        dots++;
-        if (dots % 40 == 0) Serial.println();
+    // Connect to WiFi using NetworkManager
+    if (!networkManager.connect()) {
+        Serial.println("Failed to connect to WiFi. Restarting in 5 seconds...");
+        delay(5000);
+        ESP.restart();
     }
     
-    Serial.println();
-    Serial.println("WiFi connected!");
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
     Serial.print("ThingSpeak Channel: ");
     Serial.println(channelID);
     Serial.println();
@@ -229,10 +219,14 @@ bool sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
         return false;
     }
     
-    if (WiFi.status() != WL_CONNECTED) {
+    if (!networkManager.isConnected()) {
         Serial.println("✗ WiFi Disconnected! Reconnecting...");
-        WiFi.begin(ssid, password);
-        return false;
+        if (!networkManager.reconnect()) {
+            Serial.println("✗ Failed to reconnect. Skipping upload.");
+            return false;
+        }
+        // Wait briefly for connection to stabilize
+        delay(1000);
     }
     
     // Use WiFiClient explicitly to manage TCP connection lifecycle and prevent leaks

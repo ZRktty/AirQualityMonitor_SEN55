@@ -237,6 +237,8 @@ bool sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
     
     // Use WiFiClient explicitly to manage TCP connection lifecycle and prevent leaks
     WiFiClient client;
+    client.setTimeout(10); // 10 second TCP connection timeout
+    
     HTTPClient http;
     
     // Build URL with all 8 fields
@@ -256,7 +258,7 @@ bool sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
     
     // Pass client to begin() to avoid deprecated method and internal allocation
     http.begin(client, url);
-    http.setTimeout(10000);
+    http.setTimeout(10000); // 10 second HTTP request timeout
     
     int httpResponseCode = http.GET();
     bool success = false;
@@ -287,6 +289,7 @@ bool sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
     Serial.println();
     
     http.end();
+    client.stop(); // Explicitly close TCP connection
     return success;
 }
 

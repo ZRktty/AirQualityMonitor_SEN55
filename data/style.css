@@ -140,6 +140,35 @@ h1 {
     color: #fff;
 }
 
+.gauge-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.legend-text {
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
 .sensor-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));

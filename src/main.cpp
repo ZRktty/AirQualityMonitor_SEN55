@@ -235,6 +235,8 @@ bool sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
         return false;
     }
     
+    // Use WiFiClient explicitly to manage TCP connection lifecycle and prevent leaks
+    WiFiClient client;
     HTTPClient http;
     
     // Build URL with all 8 fields
@@ -252,7 +254,8 @@ bool sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
     Serial.println();
     Serial.println("--- Uploading to ThingSpeak ---");
     
-    http.begin(url);
+    // Pass client to begin() to avoid deprecated method and internal allocation
+    http.begin(client, url);
     http.setTimeout(10000);
     
     int httpResponseCode = http.GET();

@@ -21,21 +21,22 @@
             <section class="gauge-section">
                 <div class="gauge-container">
                     <svg viewBox="0 0 200 120" class="gauge">
-                        <!-- Background track -->
+                        <!-- Background track - Perfect semicircle -->
                         <path d="M 20 100 A 80 80 0 0 1 180 100" 
                               fill="none" stroke="#2d3748" stroke-width="20" stroke-linecap="butt"/>
-                        <!-- Good: 0-15 µg/m³ (0° to 27°, 15% of 180°) -->
-                        <path d="M 20 100 A 80 80 0 0 1 48.42 44.85" 
+                        <!-- Good: 0-15 µg/m³ (15% of semicircle = 27°) -->
+                        <path d="M 20 100 A 80 80 0 0 1 49.13 46.57" 
                               fill="none" stroke="#48bb78" stroke-width="20" stroke-linecap="butt"/>
-                        <!-- Moderate: 15-35 µg/m³ (27° to 63°, next 20% -> 36° span) -->
-                        <path d="M 48.42 44.85 A 80 80 0 0 1 89.29 23.14" 
+                        <!-- Moderate: 15-35 µg/m³ (20% of semicircle = 36°) -->
+                        <path d="M 49.13 46.57 A 80 80 0 0 1 86.32 24.72" 
                               fill="none" stroke="#ecc94b" stroke-width="20" stroke-linecap="butt"/>
-                        <!-- Unhealthy Sensitive: 35-55 µg/m³ (63° to 99°, next 20% -> 36° span) -->
-                        <path d="M 89.29 23.14 A 80 80 0 0 1 130.71 23.14" 
+                        <!-- Unhealthy Sensitive: 35-55 µg/m³ (20% of semicircle = 36°) -->
+                        <path d="M 86.32 24.72 A 80 80 0 0 1 113.68 24.72" 
                               fill="none" stroke="#ed8936" stroke-width="20" stroke-linecap="butt"/>
-                        <!-- Unhealthy: 55-100 µg/m³ (99° to 180°, remaining 45% -> 81° span) -->
-                        <path d="M 130.71 23.14 A 80 80 0 0 1 180 100" 
+                        <!-- Unhealthy: 55-100 µg/m³ (45% of semicircle = 81°) -->
+                        <path d="M 113.68 24.72 A 80 80 0 0 1 180 100" 
                               fill="none" stroke="#e53e3e" stroke-width="20" stroke-linecap="butt"/>
+                        <!-- Needle -->
                         <line id="gauge-needle" x1="100" y1="100" x2="100" y2="30" 
                               stroke="#fff" stroke-width="3" stroke-linecap="round"/>
                         <circle cx="100" cy="100" r="8" fill="#fff"/>

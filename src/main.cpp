@@ -15,6 +15,7 @@
 #include "DataAveraging.h"
 #include "SensorUtils.h"
 #include "NetworkManager.h"
+#include "SensorManager.h"
 
 // Network Manager
 NetworkManager networkManager(WIFI_SSID, WIFI_PASSWORD);
@@ -46,6 +47,7 @@ unsigned long lastSensorReadTime = 0;
 bool otaInProgress = false;
 
 SensirionI2CSen5x sen5x;
+SensorManager sensorManager(&sen5x);
 DataAveraging dataAveraging;
 
 void setupOTA() {
@@ -66,11 +68,8 @@ void setupOTA() {
         
         // Stop sensor measurements during OTA
         otaInProgress = true;
-        uint16_t error = sen5x.stopMeasurement();
-        if (error) {
+        if (!sensorManager.stopMeasurement()) {
             Serial.println("⚠️  Could not stop sensor measurements");
-        } else {
-            Serial.println("✓ Sensor measurements stopped");
         }
     });
     
@@ -102,11 +101,8 @@ void setupOTA() {
         
         // Restart measurements on OTA error
         otaInProgress = false;
-        uint16_t restartError = sen5x.startMeasurement();
-        if (restartError) {
+        if (!sensorManager.startMeasurement()) {
             Serial.println("⚠️  Could not restart sensor measurements");
-        } else {
-            Serial.println("✓ Sensor measurements restarted");
         }
     });
     
@@ -148,60 +144,15 @@ void setup() {
      // Setup OTA
     setupOTA();
 
-    // Initialize I2C
-    Serial.println("Initializing I2C...");
-    Wire.begin(I2C_SDA, I2C_SCL);
-    sen5x.begin(Wire);
-
-    uint16_t error;
-    char errorMessage[256];
+    // Initialize sensor using SensorManager
+    if (!sensorManager.begin(I2C_SDA, I2C_SCL, 0.0)) {
+        Serial.println("Failed to initialize sensor. Restarting in 5 seconds...");
+        delay(5000);
+        ESP.restart();
+    }
     
-    // Reset sensor
-    Serial.println("Resetting sensor...");
-    error = sen5x.deviceReset();
-    if (error) {
-        Serial.print("ERROR resetting device: ");
-        errorToString(error, errorMessage, 256);
-        Serial.println(errorMessage);
-    } else {
-        Serial.println("Sensor reset OK");
-    }
-
-    delay(1000);
-
     // Print sensor info
-    Serial.println("Reading sensor info...");
-    unsigned char serialNumber[32];
-    uint8_t serialNumberSize = 32;
-    error = sen5x.getSerialNumber(serialNumber, serialNumberSize);
-    if (!error) {
-        Serial.print("Serial Number: ");
-        Serial.println((char*)serialNumber);
-    } else {
-        Serial.println("Could not read serial number");
-    }
-
-    // Set temperature offset
-    float tempOffset = 0.0;
-    error = sen5x.setTemperatureOffsetSimple(tempOffset);
-    if (error) {
-        Serial.print("ERROR setting temperature offset: ");
-        errorToString(error, errorMessage, 256);
-        Serial.println(errorMessage);
-    } else {
-        Serial.println("Temperature offset set OK");
-    }
-
-    // Start measurement
-    Serial.println("Starting measurement...");
-    error = sen5x.startMeasurement();
-    if (error) {
-        Serial.print("ERROR starting measurement: ");
-        errorToString(error, errorMessage, 256);
-        Serial.println(errorMessage);
-    } else {
-        Serial.println("Measurement started successfully!");
-    }
+    sensorManager.printInfo();
     
     // Wait for sensor to stabilize and provide valid readings
     waitForSensorStabilization();
@@ -311,14 +262,7 @@ void loop() {
     float pm1, pm25, pm4, pm10;
     float humidity, temperature, voc, nox;
 
-    uint16_t error = sen5x.readMeasuredValues(
-        pm1, pm25, pm4, pm10, humidity, temperature, voc, nox);
-
-    if (error) {
-        char errorMessage[256];
-        errorToString(error, errorMessage, 256);
-        Serial.print("ERROR reading sensor: ");
-        Serial.println(errorMessage);
+    if (!sensorManager.readData(pm1, pm25, pm4, pm10, humidity, temperature, voc, nox)) {
         Serial.println("⚠️  Check wiring! Skipping this reading...");
         return;
     }

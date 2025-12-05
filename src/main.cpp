@@ -10,12 +10,14 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoOTA.h>
+#include <ESPmDNS.h>
 #include "StatusLed.h"
 #include "config.h"  // Local configuration file (not in Git)
 #include "DataAveraging.h"
 #include "SensorUtils.h"
 #include "NetworkManager.h"
 #include "SensorManager.h"
+#include "WebDashboard.h"
 
 // Network Manager
 NetworkManager networkManager(WIFI_SSID, WIFI_PASSWORD);
@@ -49,6 +51,7 @@ bool otaInProgress = false;
 SensirionI2CSen5x sen5x;
 SensorManager sensorManager(&sen5x);
 DataAveraging dataAveraging;
+WebDashboard webDashboard(&sensorManager, &dataAveraging);
 
 void setupOTA() {
     Serial.println("Configuring OTA updates...");
@@ -141,8 +144,30 @@ void setup() {
     Serial.println(channelID);
     Serial.println();
 
-     // Setup OTA
+    // Setup OTA
     setupOTA();
+    
+    // Setup mDNS
+    if (MDNS.begin(otaHostname)) {
+        MDNS.addService("http", "tcp", 80);
+        Serial.println("✓ mDNS responder started");
+    } else {
+        Serial.println("⚠️  mDNS responder failed to start");
+    }
+    
+    // Initialize web dashboard
+    if (webDashboard.begin()) {
+        Serial.println();
+        Serial.println("🌐 Web Dashboard Ready!");
+        Serial.print("   http://");
+        Serial.println(networkManager.getIP());
+        Serial.print("   http://");
+        Serial.print(otaHostname);
+        Serial.println(".local/");
+        Serial.println();
+    } else {
+        Serial.println("⚠️  Web dashboard failed to start");
+    }
 
     // Initialize sensor using SensorManager
     if (!sensorManager.begin(I2C_SDA, I2C_SCL, 0.0)) {
@@ -277,6 +302,9 @@ void loop() {
 
     // Update LED status
     statusLed.update(pm25);
+    
+    // Update web dashboard with current readings
+    webDashboard.handle(pm1, pm25, pm4, pm10, temperature, humidity, voc, nox);
 
     // Get PM2.5 air quality status
     String pm25Quality, pm25Color;

@@ -1,0 +1,248 @@
+// WebSocket connection
+let ws = null;
+let reconnectInterval = null;
+let historyData = {
+    pm1: [], pm25: [], pm4: [], pm10: [],
+    temperature: [], humidity: [], voc: [], nox: []
+};
+
+// Connect to WebSocket
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.hostname}/ws`;
+
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+        console.log('WebSocket connected');
+        updateConnectionStatus(true);
+        if (reconnectInterval) {
+            clearInterval(reconnectInterval);
+            reconnectInterval = null;
+        }
+        // Request initial data
+        ws.send('getHistory');
+        ws.send('getStatus');
+    };
+
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            handleWebSocketMessage(data);
+        } catch (e) {
+            console.error('Error parsing WebSocket message:', e);
+        }
+    };
+
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        updateConnectionStatus(false);
+    };
+
+    ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        updateConnectionStatus(false);
+        // Attempt reconnection
+        if (!reconnectInterval) {
+            reconnectInterval = setInterval(() => {
+                console.log('Attempting to reconnect...');
+                connectWebSocket();
+            }, 5000);
+        }
+    };
+}
+
+// Handle incoming WebSocket messages
+function handleWebSocketMessage(data) {
+    if (data.type === 'current') {
+        updateCurrentReadings(data);
+        updateLastUpdateTime();
+    } else if (data.history) {
+        loadHistoryData(data.history);
+    } else if (data.type === 'status') {
+        updateSystemStatus(data);
+    }
+}
+
+// Update current sensor readings
+function updateCurrentReadings(data) {
+    // Update values
+    document.getElementById('pm1-value').textContent = data.pm1.toFixed(1);
+    document.getElementById('pm25-value').textContent = data.pm25.toFixed(1);
+    document.getElementById('pm4-value').textContent = data.pm4.toFixed(1);
+    document.getElementById('pm10-value').textContent = data.pm10.toFixed(1);
+    document.getElementById('temp-value').textContent = data.temperature.toFixed(1);
+    document.getElementById('humidity-value').textContent = data.humidity.toFixed(1);
+    document.getElementById('voc-value').textContent = Math.round(data.voc);
+    document.getElementById('nox-value').textContent = Math.round(data.nox);
+
+    // Update PM2.5 gauge
+    updateGauge(data.pm25);
+
+    // Update air quality label
+    updateAirQualityLabel(data.quality);
+
+    // Add to history and update sparklines
+    addToHistory(data);
+    updateAllSparklines();
+}
+
+// Update PM2.5 gauge needle
+function updateGauge(pm25) {
+    const needle = document.getElementById('gauge-needle');
+    // Map PM2.5 value to angle (0-100 µg/m³ -> -90° to +90°)
+    const maxPM = 100;
+    const angle = ((pm25 / maxPM) * 180) - 90;
+    const clampedAngle = Math.max(-90, Math.min(90, angle));
+    needle.style.transform = `rotate(${clampedAngle}deg)`;
+}
+
+// Update air quality label
+function updateAirQualityLabel(quality) {
+    const label = document.getElementById('air-quality-label');
+    const qualityMap = {
+        'GOOD': { text: 'Good', class: 'good' },
+        'MODERATE': { text: 'Moderate', class: 'moderate' },
+        'UNHEALTHY_SENSITIVE': { text: 'Unhealthy for Sensitive Groups', class: 'unhealthy-sensitive' },
+        'UNHEALTHY': { text: 'Unhealthy', class: 'unhealthy' }
+    };
+
+    const info = qualityMap[quality] || { text: quality, class: '' };
+    label.textContent = info.text;
+    label.className = `quality-label ${info.class}`;
+}
+
+// Add data to history buffers
+function addToHistory(data) {
+    const maxHistory = 60;
+
+    historyData.pm1.push(data.pm1);
+    historyData.pm25.push(data.pm25);
+    historyData.pm4.push(data.pm4);
+    historyData.pm10.push(data.pm10);
+    historyData.temperature.push(data.temperature);
+    historyData.humidity.push(data.humidity);
+    historyData.voc.push(data.voc);
+    historyData.nox.push(data.nox);
+
+    // Keep only last 60 readings
+    Object.keys(historyData).forEach(key => {
+        if (historyData[key].length > maxHistory) {
+            historyData[key].shift();
+        }
+    });
+}
+
+// Load initial history data
+function loadHistoryData(history) {
+    historyData = {
+        pm1: [], pm25: [], pm4: [], pm10: [],
+        temperature: [], humidity: [], voc: [], nox: []
+    };
+
+    history.forEach(reading => {
+        if (reading.pm25 !== undefined) historyData.pm25.push(reading.pm25);
+        if (reading.temperature !== undefined) historyData.temperature.push(reading.temperature);
+        if (reading.humidity !== undefined) historyData.humidity.push(reading.humidity);
+        if (reading.voc !== undefined) historyData.voc.push(reading.voc);
+    });
+
+    updateAllSparklines();
+}
+
+// Update all sparkline charts
+function updateAllSparklines() {
+    drawSparkline('pm1-sparkline', historyData.pm1, '#4299e1');
+    drawSparkline('pm4-sparkline', historyData.pm4, '#9f7aea');
+    drawSparkline('pm10-sparkline', historyData.pm10, '#ed64a6');
+    drawSparkline('temp-sparkline', historyData.temperature, '#ed8936');
+    drawSparkline('humidity-sparkline', historyData.humidity, '#4299e1');
+    drawSparkline('voc-sparkline', historyData.voc, '#ecc94b');
+    drawSparkline('nox-sparkline', historyData.nox, '#e53e3e');
+}
+
+// Draw sparkline chart on canvas
+function drawSparkline(canvasId, data, color) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || data.length === 0) return;
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+
+    // Find min/max for scaling
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    const range = max - min || 1;
+
+    // Draw line
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+
+    data.forEach((value, index) => {
+        const x = (index / (data.length - 1)) * width;
+        const y = height - ((value - min) / range) * (height - 4) - 2;
+
+        if (index === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    });
+
+    ctx.stroke();
+}
+
+// Update system status
+function updateSystemStatus(data) {
+    if (data.uptime !== undefined) {
+        const hours = Math.floor(data.uptime / 3600);
+        const minutes = Math.floor((data.uptime % 3600) / 60);
+        document.getElementById('uptime-value').textContent = `${hours}h ${minutes}m`;
+    }
+
+    if (data.clients !== undefined) {
+        document.getElementById('clients-value').textContent = data.clients;
+    }
+
+    if (data.freeHeap !== undefined && data.heapSize !== undefined) {
+        const usedPercent = ((data.heapSize - data.freeHeap) / data.heapSize * 100).toFixed(0);
+        document.getElementById('memory-value').textContent = `${usedPercent}%`;
+    }
+}
+
+// Update connection status badge
+function updateConnectionStatus(connected) {
+    const badge = document.getElementById('connection-status');
+    if (connected) {
+        badge.textContent = 'Connected';
+        badge.className = 'status-badge connected';
+    } else {
+        badge.textContent = 'Disconnected';
+        badge.className = 'status-badge disconnected';
+    }
+}
+
+// Update last update timestamp
+function updateLastUpdateTime() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString();
+    document.getElementById('last-update').textContent = `Last update: ${timeStr}`;
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Air Quality Dashboard initialized');
+    connectWebSocket();
+
+    // Request status update every 10 seconds
+    setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send('getStatus');
+        }
+    }, 10000);
+});

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Quality Monitor - SEN55</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌬️ Air Quality Monitor</h1>
+            <div class="status-bar">
+                <span id="connection-status" class="status-badge disconnected">Connecting...</span>
+                <span id="last-update">--</span>
+            </div>
+        </header>
+
+        <main>
+            <!-- PM2.5 Gauge -->
+            <section class="gauge-section">
+                <div class="gauge-container">
+                    <svg viewBox="0 0 200 120" class="gauge">
+                        <path d="M 20 100 A 80 80 0 0 1 180 100" 
+                              fill="none" stroke="#2d3748" stroke-width="20" stroke-linecap="round"/>
+                        <path d="M 20 100 A 80 80 0 0 1 60 35" 
+                              fill="none" stroke="#48bb78" stroke-width="20" stroke-linecap="round"/>
+                        <path d="M 60 35 A 80 80 0 0 1 100 20" 
+                              fill="none" stroke="#ecc94b" stroke-width="20" stroke-linecap="round"/>
+                        <path d="M 100 20 A 80 80 0 0 1 140 35" 
+                              fill="none" stroke="#ed8936" stroke-width="20" stroke-linecap="round"/>
+                        <path d="M 140 35 A 80 80 0 0 1 180 100" 
+                              fill="none" stroke="#e53e3e" stroke-width="20" stroke-linecap="round"/>
+                        <line id="gauge-needle" x1="100" y1="100" x2="100" y2="30" 
+                              stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+                        <circle cx="100" cy="100" r="8" fill="#fff"/>
+                    </svg>
+                    <div class="gauge-value">
+                        <span id="pm25-value">--</span>
+                        <span class="gauge-unit">µg/m³</span>
+                    </div>
+                    <div class="gauge-label">PM2.5</div>
+                    <div id="air-quality-label" class="quality-label">--</div>
+                </div>
+            </section>
+
+            <!-- Sensor Cards Grid -->
+            <section class="sensor-grid">
+                <div class="sensor-card">
+                    <div class="sensor-header">
+                        <span class="sensor-icon">💨</span>
+                        <span class="sensor-name">PM1.0</span>
+                    </div>
+                    <div class="sensor-value" id="pm1-value">--</div>
+                    <div class="sensor-unit">µg/m³</div>
+                    <canvas class="sparkline" id="pm1-sparkline" width="200" height="40"></canvas>
+                </div>
+
+                <div class="sensor-card">
+                    <div class="sensor-header">
+                        <span class="sensor-icon">🌫️</span>
+                        <span class="sensor-name">PM4</span>
+                    </div>
+                    <div class="sensor-value" id="pm4-value">--</div>
+                    <div class="sensor-unit">µg/m³</div>
+                    <canvas class="sparkline" id="pm4-sparkline" width="200" height="40"></canvas>
+                </div>
+
+                <div class="sensor-card">
+                    <div class="sensor-header">
+                        <span class="sensor-icon">☁️</span>
+                        <span class="sensor-name">PM10</span>
+                    </div>
+                    <div class="sensor-value" id="pm10-value">--</div>
+                    <div class="sensor-unit">µg/m³</div>
+                    <canvas class="sparkline" id="pm10-sparkline" width="200" height="40"></canvas>
+                </div>
+
+                <div class="sensor-card">
+                    <div class="sensor-header">
+                        <span class="sensor-icon">🌡️</span>
+                        <span class="sensor-name">Temperature</span>
+                    </div>
+                    <div class="sensor-value" id="temp-value">--</div>
+                    <div class="sensor-unit">°C</div>
+                    <canvas class="sparkline" id="temp-sparkline" width="200" height="40"></canvas>
+                </div>
+
+                <div class="sensor-card">
+                    <div class="sensor-header">
+                        <span class="sensor-icon">💧</span>
+                        <span class="sensor-name">Humidity</span>
+                    </div>
+                    <div class="sensor-value" id="humidity-value">--</div>
+                    <div class="sensor-unit">%</div>
+                    <canvas class="sparkline" id="humidity-sparkline" width="200" height="40"></canvas>
+                </div>
+
+                <div class="sensor-card">
+                    <div class="sensor-header">
+                        <span class="sensor-icon">🧪</span>
+                        <span class="sensor-name">VOC Index</span>
+                    </div>
+                    <div class="sensor-value" id="voc-value">--</div>
+                    <div class="sensor-unit">index</div>
+                    <canvas class="sparkline" id="voc-sparkline" width="200" height="40"></canvas>
+                </div>
+
+                <div class="sensor-card">
+                    <div class="sensor-header">
+                        <span class="sensor-icon">⚗️</span>
+                        <span class="sensor-name">NOx Index</span>
+                    </div>
+                    <div class="sensor-value" id="nox-value">--</div>
+                    <div class="sensor-unit">index</div>
+                    <canvas class="sparkline" id="nox-sparkline" width="200" height="40"></canvas>
+                </div>
+
+                <div class="sensor-card status-card">
+                    <div class="sensor-header">
+                        <span class="sensor-icon">📊</span>
+                        <span class="sensor-name">System Status</span>
+                    </div>
+                    <div class="status-info">
+                        <div class="status-item">
+                            <span class="status-label">Uptime:</span>
+                            <span id="uptime-value">--</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Clients:</span>
+                            <span id="clients-value">--</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Memory:</span>
+                            <span id="memory-value">--</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>ESP32-S3 SEN55 Air Quality Monitor</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -237,7 +237,7 @@ bool sendToThingSpeak(float pm1, float pm25, float pm4, float pm10,
     
     // Use WiFiClient explicitly to manage TCP connection lifecycle and prevent leaks
     WiFiClient client;
-    client.setTimeout(10); // 10 second TCP connection timeout
+    client.setTimeout(10000); // 10 second TCP connection timeout (milliseconds)
     
     HTTPClient http;
     

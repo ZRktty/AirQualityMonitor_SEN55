@@ -29,6 +29,14 @@ bool WebDashboard::begin() {
     // Serve static files from LittleFS
     server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
     
+    // API endpoint for device reset
+    server.on("/api/reset", HTTP_POST, [](AsyncWebServerRequest* request) {
+        Serial.println("🔄 Device reset requested via web interface");
+        request->send(200, "text/plain", "Device resetting...");
+        delay(100); // Allow response to be sent
+        ESP.restart();
+    });
+    
     // Handle 404
     server.onNotFound([](AsyncWebServerRequest* request) {
         request->send(404, "text/plain", "Not found");

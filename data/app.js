@@ -287,10 +287,55 @@ function updateLastUpdateTime() {
     document.getElementById('last-update').textContent = `Last update: ${timeStr}`;
 }
 
+// Sidebar menu functionality
+function initSidebar() {
+    const hamburger = document.getElementById('hamburger');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const closeBtn = document.getElementById('close-sidebar');
+    const resetBtn = document.getElementById('reset-device');
+
+    function openSidebar() {
+        sidebar.classList.add('open');
+        overlay.classList.add('show');
+    }
+
+    function closeSidebar() {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('show');
+    }
+
+    hamburger.addEventListener('click', openSidebar);
+    closeBtn.addEventListener('click', closeSidebar);
+    overlay.addEventListener('click', closeSidebar);
+
+    // Reset device functionality
+    resetBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (confirm('Are you sure you want to reset the device? This will restart the ESP32.')) {
+            fetch('/api/reset', { method: 'POST' })
+                .then(response => {
+                    if (response.ok) {
+                        alert('Device reset initiated. The ESP32 will restart.');
+                        closeSidebar();
+                        updateConnectionStatus(false);
+                    } else {
+                        alert('Failed to reset device.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Reset error:', error);
+                    alert('Error communicating with device.');
+                });
+        }
+    });
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Air Quality Dashboard initialized');
     initGauge();
+    initSidebar();
     connectWebSocket();
 
     // Request status update every 10 seconds

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Air Quality Monitor - SEN55</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-gauges@2.1.7/gauge.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -20,31 +21,7 @@
             <!-- PM2.5 Gauge -->
             <section class="gauge-section">
                 <div class="gauge-container">
-                    <svg viewBox="0 0 200 120" class="gauge">
-                        <!-- Background track - Perfect semicircle -->
-                        <path d="M 20 100 A 80 80 0 0 1 180 100" 
-                              fill="none" stroke="#2d3748" stroke-width="20" stroke-linecap="butt"/>
-                        <!-- Good: 0-15 µg/m³ (15% of semicircle = 27°) -->
-                        <path d="M 20 100 A 80 80 0 0 1 49.13 46.57" 
-                              fill="none" stroke="#48bb78" stroke-width="20" stroke-linecap="butt"/>
-                        <!-- Moderate: 15-35 µg/m³ (20% of semicircle = 36°) -->
-                        <path d="M 49.13 46.57 A 80 80 0 0 1 86.32 24.72" 
-                              fill="none" stroke="#ecc94b" stroke-width="20" stroke-linecap="butt"/>
-                        <!-- Unhealthy Sensitive: 35-55 µg/m³ (20% of semicircle = 36°) -->
-                        <path d="M 86.32 24.72 A 80 80 0 0 1 113.68 24.72" 
-                              fill="none" stroke="#ed8936" stroke-width="20" stroke-linecap="butt"/>
-                        <!-- Unhealthy: 55-100 µg/m³ (45% of semicircle = 81°) -->
-                        <path d="M 113.68 24.72 A 80 80 0 0 1 180 100" 
-                              fill="none" stroke="#e53e3e" stroke-width="20" stroke-linecap="butt"/>
-                        <!-- Needle -->
-                        <line id="gauge-needle" x1="100" y1="100" x2="100" y2="30" 
-                              stroke="#fff" stroke-width="3" stroke-linecap="round"/>
-                        <circle cx="100" cy="100" r="8" fill="#fff"/>
-                    </svg>
-                    <div class="gauge-value">
-                        <span id="pm25-value">--</span>
-                        <span class="gauge-unit">µg/m³</span>
-                    </div>
+                    <canvas id="pm25-gauge"></canvas>
                     <div class="gauge-label">PM2.5</div>
                     <div id="air-quality-label" class="quality-label">--</div>
                     <div class="gauge-legend">

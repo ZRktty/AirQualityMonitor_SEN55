@@ -1,12 +1,70 @@
 // WebSocket connection
 let ws = null;
 let reconnectInterval = null;
+let pm25Gauge = null;
 let historyData = {
     pm1: [], pm25: [], pm4: [], pm10: [],
     temperature: [], humidity: [], voc: [], nox: []
 };
 
-// Connect to WebSocket
+// Initialize PM2.5 gauge with canvas-gauges
+function initGauge() {
+    pm25Gauge = new RadialGauge({
+        renderTo: 'pm25-gauge',
+        width: 300,
+        height: 300,
+        units: 'µg/m³',
+        minValue: 0,
+        maxValue: 100,
+        majorTicks: ['0', '15', '35', '55', '100'],
+        minorTicks: 5,
+        strokeTicks: true,
+        highlights: [
+            { from: 0, to: 15, color: '#48bb78' },
+            { from: 15, to: 35, color: '#ecc94b' },
+            { from: 35, to: 55, color: '#ed8936' },
+            { from: 55, to: 100, color: '#e53e3e' }
+        ],
+        colorPlate: 'transparent',
+        borderShadowWidth: 0,
+        borders: false,
+        needleType: 'arrow',
+        needleWidth: 3,
+        needleCircleSize: 8,
+        needleCircleOuter: true,
+        needleCircleInner: false,
+        animationDuration: 500,
+        animationRule: 'linear',
+        colorNeedle: '#ffffff',
+        colorNeedleEnd: '#ffffff',
+        colorNeedleCircleOuter: '#ffffff',
+        colorNeedleCircleOuterEnd: '#ffffff',
+        valueBox: true,
+        valueBoxStroke: 0,
+        valueBoxWidth: 0,
+        valueText: '',
+        valueTextShadow: false,
+        valueDec: 1,
+        valueInt: 2,
+        fontValue: 'Arial',
+        fontValueSize: 48,
+        fontValueWeight: 'bold',
+        fontValueStyle: 'normal',
+        colorValueText: '#e2e8f0',
+        colorValueTextShadow: 'transparent',
+        ticksAngle: 180,
+        startAngle: 90,
+        fontNumbersSize: 20,
+        fontNumbersWeight: 'normal',
+        fontNumbersColor: '#e2e8f0',
+        colorMajorTicks: '#cbd5e0',
+        colorMinorTicks: '#4a5568',
+        colorUnits: '#a0aec0',
+        fontUnitsSize: 16
+    });
+
+    pm25Gauge.draw();
+}// Connect to WebSocket
 function connectWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.hostname}/ws`;
@@ -68,7 +126,6 @@ function handleWebSocketMessage(data) {
 function updateCurrentReadings(data) {
     // Update values
     document.getElementById('pm1-value').textContent = data.pm1.toFixed(1);
-    document.getElementById('pm25-value').textContent = data.pm25.toFixed(1);
     document.getElementById('pm4-value').textContent = data.pm4.toFixed(1);
     document.getElementById('pm10-value').textContent = data.pm10.toFixed(1);
     document.getElementById('temp-value').textContent = data.temperature.toFixed(1);
@@ -77,7 +134,9 @@ function updateCurrentReadings(data) {
     document.getElementById('nox-value').textContent = Math.round(data.nox);
 
     // Update PM2.5 gauge
-    updateGauge(data.pm25);
+    if (pm25Gauge) {
+        pm25Gauge.value = data.pm25;
+    }
 
     // Update air quality label
     updateAirQualityLabel(data.quality);
@@ -85,16 +144,6 @@ function updateCurrentReadings(data) {
     // Add to history and update sparklines
     addToHistory(data);
     updateAllSparklines();
-}
-
-// Update PM2.5 gauge needle
-function updateGauge(pm25) {
-    const needle = document.getElementById('gauge-needle');
-    // Map PM2.5 value to angle (0-100 µg/m³ -> -90° to +90°)
-    const maxPM = 100;
-    const angle = ((pm25 / maxPM) * 180) - 90;
-    const clampedAngle = Math.max(-90, Math.min(90, angle));
-    needle.style.transform = `rotate(${clampedAngle}deg)`;
 }
 
 // Update air quality label
@@ -237,6 +286,7 @@ function updateLastUpdateTime() {
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Air Quality Dashboard initialized');
+    initGauge();
     connectWebSocket();
 
     // Request status update every 10 seconds

@@ -82,27 +82,12 @@ h1 {
     border: 1px solid var(--border-color);
 }
 
-.gauge {
+#pm25-gauge {
     width: 100%;
     max-width: 300px;
+    height: 300px;
     margin: 0 auto;
-}
-
-#gauge-needle {
-    transform-origin: 100px 100px;
-    transition: transform 0.5s ease-out;
-}
-
-.gauge-value {
-    font-size: 3rem;
-    font-weight: 700;
-    margin: 1rem 0 0.5rem;
-}
-
-.gauge-unit {
-    font-size: 1rem;
-    color: var(--text-secondary);
-    margin-left: 0.5rem;
+    display: block;
 }
 
 .gauge-label {
@@ -128,6 +113,11 @@ h1 {
 .quality-label.moderate {
     background: var(--yellow);
     color: #1a202c;
+}
+
+.quality-label.sensitive {
+    background: var(--orange);
+    color: #fff;
 }
 
 .quality-label.unhealthy-sensitive {
